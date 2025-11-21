@@ -1,0 +1,5 @@
+{
+  "name": "JobConnect Uganda MVP",
+  "description": "A job marketplace web application that automatically ingests job posts from WhatsApp groups using Gemini AI, featuring employer dashboards and admin moderation.",
+  "requestFramePermissions": []
+}
