@@ -1,36 +1,45 @@
-
 import { createClient } from '@supabase/supabase-js';
 
-// To enable Supabase, add these variables to your environment (.env file)
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_KEY;
+// Helper to safely get environment variables
+const getEnvVar = (key: string): string => {
+  // Check Vite's import.meta.env
+  try {
+    // Explicitly cast to any to avoid TypeScript errors regarding 'env' on ImportMeta
+    const meta = import.meta as any;
+    if (meta && meta.env && meta.env[key]) {
+      return meta.env[key] as string;
+    }
+  } catch (e) {
+    // Ignore errors if import.meta is not available
+  }
 
-export const isSupabaseConfigured = () => {
-  return !!SUPABASE_URL && !!SUPABASE_KEY;
+  // Check Node's process.env
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env[key]) {
+      return process.env[key] as string;
+    }
+  } catch (e) {
+    // Ignore errors
+  }
+
+  return '';
 };
 
-// Only log this warning once on load
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL') || getEnvVar('SUPABASE_URL');
+const supabaseKey = getEnvVar('VITE_SUPABASE_ANON_KEY') || getEnvVar('SUPABASE_KEY');
+
+export const isSupabaseConfigured = () => {
+  return !!supabaseUrl && !!supabaseKey && 
+         supabaseUrl !== 'undefined' && supabaseKey !== 'undefined' &&
+         !supabaseUrl.includes('placeholder');
+};
+
 if (!isSupabaseConfigured()) {
-  // Using a timeout to ensure it prints after other system logs
-  setTimeout(() => {
-    console.group("⚠️  DATABASE NOT CONNECTED");
-    console.log("%cThe app is running in MOCK MODE.", "color: orange; font-weight: bold;");
-    console.log("Data is being stored in memory and will be lost on refresh.");
-    console.log("To enable persistence:");
-    console.log("1. Create a project at https://supabase.com");
-    console.log("2. Copy the SQL from 'supabase_schema.sql' and run it in the Supabase SQL Editor.");
-    console.log("3. Add SUPABASE_URL and SUPABASE_KEY to your .env file.");
-    console.groupEnd();
-  }, 1000);
-} else {
-  setTimeout(() => {
-    console.log("%c✅ Connected to Supabase", "color: green; font-weight: bold;");
-  }, 1000);
+  console.warn("Supabase is not configured. Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file.");
 }
 
-// Initialize with environment variables or fallback placeholders to prevent crash on init
-// The API service checks isSupabaseConfigured() before making actual requests
+// Create a single supabase client for interacting with your database
 export const supabase = createClient(
-  SUPABASE_URL || 'https://placeholder.supabase.co', 
-  SUPABASE_KEY || 'placeholder-key'
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseKey || 'placeholder-key'
 );

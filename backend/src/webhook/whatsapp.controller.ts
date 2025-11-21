@@ -1,5 +1,4 @@
 import { Controller, Get, Post, Body, Query, Res, HttpStatus, Logger } from '@nestjs/common';
-import { Response } from 'express';
 
 // Mock Types for illustration
 interface WebhookPayload {
@@ -20,7 +19,7 @@ export class WhatsappWebhookController {
     @Query('hub.mode') mode: string,
     @Query('hub.verify_token') token: string,
     @Query('hub.challenge') challenge: string,
-    @Res() res: Response,
+    @Res() res: any,
   ) {
     if (mode === 'subscribe' && token === this.verifyToken) {
       this.logger.log('Webhook verified successfully');
@@ -33,7 +32,7 @@ export class WhatsappWebhookController {
    * Receives the actual messages.
    */
   @Post()
-  async handleMessage(@Body() body: WebhookPayload, @Res() res: Response) {
+  async handleMessage(@Body() body: WebhookPayload, @Res() res: any) {
     // 1. Acknowledge immediately to prevent retries (Meta requirement < 3s)
     res.status(HttpStatus.OK).send('EVENT_RECEIVED');
 

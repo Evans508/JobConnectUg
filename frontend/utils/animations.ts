@@ -1,4 +1,6 @@
-export const pageVariants = {
+import { Variants } from 'framer-motion';
+
+export const pageVariants: Variants = {
   initial: { opacity: 0, y: 10, scale: 0.98 },
   animate: { 
     opacity: 1, 
@@ -14,7 +16,7 @@ export const pageVariants = {
   }
 };
 
-export const staggerContainer = {
+export const staggerContainer: Variants = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
@@ -24,7 +26,7 @@ export const staggerContainer = {
   }
 };
 
-export const staggerItem = {
+export const staggerItem: Variants = {
   hidden: { opacity: 0, y: 20 },
   show: { 
     opacity: 1, 
@@ -33,13 +35,13 @@ export const staggerItem = {
   }
 };
 
-export const buttonClick = {
+export const buttonClick: Variants = {
   rest: { scale: 1 },
   hover: { scale: 1.02 },
   tap: { scale: 0.96 }
 };
 
-export const cardHover = {
+export const cardHover: Variants = {
   rest: { y: 0, boxShadow: "0 1px 2px 0 rgb(0 0 0 / 0.05)" },
   hover: { 
     y: -5, 
@@ -48,13 +50,13 @@ export const cardHover = {
   }
 };
 
-export const modalOverlay = {
+export const modalOverlay: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
   exit: { opacity: 0 }
 };
 
-export const modalPanel = {
+export const modalPanel: Variants = {
   hidden: { opacity: 0, y: 50, scale: 0.95 },
   visible: { 
     opacity: 1, 

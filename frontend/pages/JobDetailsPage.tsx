@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Job } from '../types';
 import { api } from '../services/api';
@@ -67,7 +68,7 @@ const JobDetailsPage: React.FC<JobDetailsPageProps> = ({ jobId, onBack }) => {
               <motion.div 
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                type="spring"
+                transition={{ type: "spring" }}
                 className="w-16 h-16 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-2xl font-bold border border-indigo-100 shadow-sm"
               >
                 {job.companyName.charAt(0)}

@@ -1,91 +1,6 @@
-import { Job, IngestLog, JobInput, User, UserRole } from '../types';
+
+import { Job, IngestLog, JobInput, User, UserRole, JobAlert } from '../types';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-
-// --- MOCK DATA (Fallback) ---
-const MOCK_JOBS: Job[] = [
-  {
-    id: '1',
-    title: 'Senior Frontend Engineer',
-    companyName: 'Tech Corp Uganda',
-    location: 'Kampala',
-    jobType: 'Full-time',
-    description: 'We are looking for an experienced React developer to join our dynamic team. You will be responsible for building high-quality user interfaces.',
-    requirements: ['3+ years React experience', 'TypeScript proficiency', 'Tailwind CSS mastery'],
-    responsibilities: ['Develop new features', 'Code reviews', 'Mentor junior devs'],
-    salaryRange: 'UGX 3M - 5M',
-    deadline: '2024-12-31',
-    categoryId: 'IT & Software',
-    postedAt: new Date().toISOString(),
-    applicationLink: 'https://example.com/apply',
-    isFeatured: true,
-    sourceType: 'MANUAL',
-    views: 154,
-    applicantsCount: 12
-  },
-  {
-    id: '2',
-    title: 'Logistics Coordinator',
-    companyName: 'Swift Transporters',
-    location: 'Entebbe',
-    jobType: 'Contract',
-    description: 'Manage fleet operations and coordinate deliveries across the central region.',
-    requirements: ['Valid Driving Permit', 'Logistics experience', 'Good communication'],
-    responsibilities: ['Fleet tracking', 'Driver scheduling'],
-    salaryRange: 'UGX 800k - 1.2M',
-    deadline: '2024-11-20',
-    categoryId: 'Driving',
-    postedAt: new Date(Date.now() - 86400000).toISOString(),
-    applicationLink: 'mailto:jobs@swift.ug',
-    isFeatured: false,
-    sourceType: 'MANUAL',
-    views: 45,
-    applicantsCount: 3
-  },
-  {
-    id: '3',
-    title: 'Accountant',
-    companyName: 'Global NGO',
-    location: 'Gulu',
-    jobType: 'Full-time',
-    description: 'NGO looking for a certified accountant to handle grant reporting and audits.',
-    requirements: ['CPA Level 2', 'QuickBooks', 'NGO experience'],
-    responsibilities: ['Financial reporting', 'Budgeting'],
-    salaryRange: 'UGX 2.5M',
-    deadline: '2024-11-30',
-    categoryId: 'NGO',
-    postedAt: new Date(Date.now() - 172800000).toISOString(),
-    applicationLink: 'https://ngo.org/careers',
-    isFeatured: false,
-    sourceType: 'MANUAL',
-    views: 89,
-    applicantsCount: 25
-  }
-];
-
-const MOCK_LOGS: IngestLog[] = [
-    {
-        id: 'log-1',
-        rawText: 'Hiring Driver urgently. Call 0772123456. Loc: Kampala. Pay 500k.',
-        status: 'parsed',
-        createdAt: new Date().toISOString(),
-        parsedJson: {
-            jobs: [{
-                title: 'Driver',
-                company: 'Unknown',
-                location: 'Kampala',
-                salary: '500k',
-                contact: '0772123456'
-            }]
-        }
-    },
-    {
-        id: 'log-2',
-        rawText: 'Beware of scammers asking for money.',
-        status: 'rejected',
-        reason: 'No jobs found',
-        createdAt: new Date(Date.now() - 3600000).toISOString()
-    }
-];
 
 // --- MAPPERS (DB Snake_case -> Frontend CamelCase) ---
 const mapJobFromDB = (dbJob: any): Job => ({
@@ -105,7 +20,9 @@ const mapJobFromDB = (dbJob: any): Job => ({
   isFeatured: dbJob.is_featured || false,
   sourceType: dbJob.source_type || 'MANUAL',
   views: dbJob.views || 0,
-  applicantsCount: dbJob.applicants_count || 0
+  applicantsCount: dbJob.applicants_count || 0,
+  postedBy: dbJob.posted_by,
+  status: dbJob.status
 });
 
 const mapLogFromDB = (dbLog: any): IngestLog => ({
@@ -117,64 +34,55 @@ const mapLogFromDB = (dbLog: any): IngestLog => ({
   createdAt: dbLog.created_at
 });
 
-// Helper to create a mock job
-const createMockJob = (input: JobInput): Job => ({
-    id: Math.random().toString(36).substr(2, 9),
-    ...input,
-    requirements: [],
-    responsibilities: [],
-    postedAt: new Date().toISOString(),
-    isFeatured: false,
-    sourceType: 'MANUAL',
-    views: 0,
-    applicantsCount: 0,
-    jobType: input.jobType as any
+const mapAlertFromDB = (dbAlert: any): JobAlert => ({
+  id: dbAlert.id,
+  userId: dbAlert.user_id,
+  keywords: dbAlert.keywords,
+  location: dbAlert.location,
+  jobType: dbAlert.job_type,
+  createdAt: dbAlert.created_at
 });
 
 export const api = {
-  // --- AUTHENTICATION (Mock) ---
-  login: async (email: string, role: UserRole = UserRole.SEEKER): Promise<User> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    return {
-      id: email === 'admin@jobconnect.ug' ? 'admin-1' : `user-${Math.floor(Math.random() * 1000)}`,
-      name: email.split('@')[0],
-      email: email,
-      role: email === 'admin@jobconnect.ug' ? UserRole.ADMIN : role,
-      avatarUrl: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`
-    };
-  },
-
   // --- JOBS ---
   getJobs: async (): Promise<Job[]> => {
-    if (!isSupabaseConfigured()) {
-        return MOCK_JOBS;
-    }
+    if (!isSupabaseConfigured()) return [];
 
     try {
       const { data, error } = await supabase
         .from('jobs')
         .select('*')
+        .eq('status', 'PUBLISHED')
         .order('created_at', { ascending: false });
       
-      if (error) {
-        console.warn('Supabase error (using mock data):', error.message);
-        return MOCK_JOBS;
-      }
-      if (!data || data.length === 0) return MOCK_JOBS;
-      
-      return data.map(mapJobFromDB);
+      if (error) throw error;
+      return (data || []).map(mapJobFromDB);
     } catch (error) {
-      console.warn('Unexpected error fetching jobs, using mock data:', error);
-      return MOCK_JOBS;
+      console.error('Error fetching jobs:', error);
+      return [];
+    }
+  },
+
+  // Fetch jobs specifically for the logged-in employer (includes pending/rejected)
+  getEmployerJobs: async (userId: string): Promise<Job[]> => {
+    if (!isSupabaseConfigured()) return [];
+    try {
+        const { data, error } = await supabase
+            .from('jobs')
+            .select('*')
+            .eq('posted_by', userId)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []).map(mapJobFromDB);
+    } catch (error) {
+        console.error('Error fetching employer jobs:', error);
+        return [];
     }
   },
 
   getJobById: async (id: string): Promise<Job | undefined> => {
-    if (!isSupabaseConfigured()) {
-        return MOCK_JOBS.find(j => j.id === id);
-    }
+    if (!isSupabaseConfigured()) return undefined;
 
     try {
         const { data, error } = await supabase
@@ -183,58 +91,52 @@ export const api = {
         .eq('id', id)
         .single();
 
-        if (error || !data) return MOCK_JOBS.find(j => j.id === id);
+        if (error) throw error;
         return mapJobFromDB(data);
     } catch (error) {
-        return MOCK_JOBS.find(j => j.id === id);
+        console.error('Error fetching job details:', error);
+        return undefined;
     }
   },
 
-  createJob: async (input: JobInput): Promise<Job> => {
-    if (!isSupabaseConfigured()) {
-        const newJob = createMockJob(input);
-        MOCK_JOBS.unshift(newJob);
-        return newJob;
-    }
-
-    const dbPayload = {
-      title: input.title,
-      company_name: input.companyName,
-      location: input.location,
-      job_type: input.jobType,
-      description: input.description,
-      application_link: input.applicationLink,
-      salary_range: input.salaryRange,
-      category_id: input.categoryId || 'general',
-      deadline: input.deadline,
-      is_featured: false,
-      source_type: 'MANUAL',
-      views: 0,
-      applicants_count: 0
-    };
+  createJob: async (input: JobInput): Promise<Job | null> => {
+    if (!isSupabaseConfigured()) return null;
 
     try {
+      // Get current user for posted_by
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user) throw new Error("User not authenticated");
+
+      const dbPayload = {
+        title: input.title,
+        company_name: input.companyName,
+        location: input.location,
+        job_type: input.jobType,
+        description: input.description,
+        application_link: input.applicationLink,
+        salary_range: input.salaryRange,
+        category_id: input.categoryId || 'general',
+        deadline: input.deadline,
+        is_featured: false,
+        source_type: 'MANUAL',
+        posted_by: user.id,
+        // SECURITY CHANGE: Manual jobs now default to PENDING_APPROVAL for moderation
+        status: 'PENDING_APPROVAL'
+      };
+
       const { data, error } = await supabase
         .from('jobs')
         .insert(dbPayload)
         .select()
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST205') {
-            console.warn('Jobs table missing. Created local mock job instead.');
-            const newJob = createMockJob(input);
-            MOCK_JOBS.unshift(newJob);
-            return newJob;
-        }
-        throw new Error(error.message);
-      }
+      if (error) throw error;
+
       return mapJobFromDB(data);
     } catch (e) {
         console.error("Create job failed", e);
-        const newJob = createMockJob(input);
-        MOCK_JOBS.unshift(newJob);
-        return newJob;
+        return null;
     }
   },
 
@@ -245,8 +147,83 @@ export const api = {
         if (data) {
             await supabase.from('jobs').update({ views: (data.views || 0) + 1 }).eq('id', id);
         }
+    } catch (e) { /* ignore */ }
+  },
+
+  // --- JOB ALERTS ---
+  getJobAlerts: async (userId: string): Promise<JobAlert[]> => {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await supabase
+        .from('job_alerts')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return (data || []).map(mapAlertFromDB);
+    } catch (error) {
+      console.error("Error getting job alerts", error);
+      return [];
+    }
+  },
+
+  createJobAlert: async (userId: string, alert: Partial<JobAlert>): Promise<JobAlert | null> => {
+    if (!isSupabaseConfigured()) return null;
+    try {
+      const { data, error } = await supabase
+        .from('job_alerts')
+        .insert({
+          user_id: userId,
+          keywords: alert.keywords,
+          location: alert.location,
+          job_type: alert.jobType
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return mapAlertFromDB(data);
+    } catch (error) {
+      console.error("Error creating job alert", error);
+      return null;
+    }
+  },
+
+  deleteJobAlert: async (alertId: string) => {
+    if (!isSupabaseConfigured()) return;
+    try {
+      await supabase.from('job_alerts').delete().eq('id', alertId);
+    } catch (error) {
+      console.error("Error deleting job alert", error);
+    }
+  },
+
+  // Simulated backend process
+  processJobAlerts: async (job: Job) => {
+    if (!isSupabaseConfigured()) return;
+    try {
+        const { data: alerts } = await supabase.from('job_alerts').select('*');
+        
+        if (!alerts) return;
+
+        const mappedAlerts = alerts.map(mapAlertFromDB);
+
+        const matches = mappedAlerts.filter((alert: JobAlert) => {
+             const locationMatch = !alert.location || alert.location === 'All' || job.location.includes(alert.location);
+             const typeMatch = !alert.jobType || alert.jobType === 'All' || job.jobType === alert.jobType;
+             const keywordMatch = !alert.keywords || 
+                                  job.title.toLowerCase().includes(alert.keywords.toLowerCase()) ||
+                                  job.description.toLowerCase().includes(alert.keywords.toLowerCase());
+             return locationMatch && typeMatch && keywordMatch;
+        });
+
+        matches.forEach((match: JobAlert) => {
+            console.log(`[SIMULATION] 📧 Notification sent to User ${match.userId} for Job "${job.title}" based on Alert #${match.id}`);
+        });
+
     } catch (e) {
-        // Ignore view increment errors
+        console.error("Error processing alerts", e);
     }
   },
 
@@ -257,10 +234,10 @@ export const api = {
     try {
       const { data } = await supabase
           .from('saved_jobs')
-          .select('*')
+          .select('id')
           .eq('user_id', userId)
           .eq('job_id', jobId)
-          .single();
+          .maybeSingle();
 
       if (data) {
           await supabase.from('saved_jobs').delete().eq('id', data.id);
@@ -280,13 +257,13 @@ export const api = {
             .select('id')
             .eq('user_id', userId)
             .eq('job_id', jobId)
-            .single();
+            .maybeSingle();
         return !!data;
     } catch (e) { return false; }
   },
 
   getSavedJobs: async (userId: string): Promise<Job[]> => {
-    if (!isSupabaseConfigured()) return [MOCK_JOBS[0]];
+    if (!isSupabaseConfigured()) return [];
 
     try {
         const { data, error } = await supabase
@@ -294,66 +271,123 @@ export const api = {
         .select('job_id, jobs(*)')
         .eq('user_id', userId);
 
-        if (error || !data) return [];
+        if (error) throw error;
         
-        return data.map((item: any) => mapJobFromDB(item.jobs));
+        return (data || [])
+           .map((item: any) => item.jobs)
+           .filter((j: any) => j !== null)
+           .map(mapJobFromDB);
     } catch (error) {
+        console.error("Error getting saved jobs", error);
         return [];
     }
   },
 
-  // --- ADMIN INGESTION API ---
+  // --- ADMIN APIs ---
+  
   getIngestQueue: async (): Promise<IngestLog[]> => {
-    if (!isSupabaseConfigured()) return MOCK_LOGS;
-
+    if (!isSupabaseConfigured()) return [];
     try {
         const { data, error } = await supabase
             .from('ingest_logs')
             .select('*')
             .order('created_at', { ascending: false });
         
-        if (error || !data) {
-            return MOCK_LOGS;
-        }
-        return data.map(mapLogFromDB);
+        if (error) throw error;
+        return (data || []).map(mapLogFromDB);
     } catch (error) {
-        return MOCK_LOGS;
+        console.error("Error getting ingest queue", error);
+        return [];
     }
   },
 
-  publishIngest: async (id: string) => {
-      if (!isSupabaseConfigured()) {
-          const log = MOCK_LOGS.find(l => l.id === id);
-          if (log) log.status = 'published';
-          return;
-      }
+  // Fetch Manual jobs waiting for approval
+  getPendingJobs: async (): Promise<Job[]> => {
+    if (!isSupabaseConfigured()) return [];
+    try {
+        const { data, error } = await supabase
+            .from('jobs')
+            .select('*')
+            .eq('status', 'PENDING_APPROVAL')
+            .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        return (data || []).map(mapJobFromDB);
+    } catch (error) {
+        console.error("Error getting pending jobs", error);
+        return [];
+    }
+  },
+
+  approveJob: async (id: string) => {
+      if (!isSupabaseConfigured()) return;
       try {
+          const { data, error } = await supabase
+            .from('jobs')
+            .update({ status: 'PUBLISHED' })
+            .eq('id', id)
+            .select()
+            .single();
+          
+          if (error) throw error;
+          
+          // Trigger alerts now that it is published
+          if (data) {
+              api.processJobAlerts(mapJobFromDB(data));
+          }
+      } catch (e) { console.error("Error approving job", e); }
+  },
+
+  rejectJob: async (id: string) => {
+      if (!isSupabaseConfigured()) return;
+      try {
+          // We can either delete or set to REJECTED. Setting to REJECTED allows the user to see why.
+          await supabase.from('jobs').update({ status: 'REJECTED' }).eq('id', id);
+      } catch (e) { console.error("Error rejecting job", e); }
+  },
+
+  publishIngest: async (id: string) => {
+      if (!isSupabaseConfigured()) return;
+      try {
+          const { data: log } = await supabase.from('ingest_logs').select('*').eq('id', id).single();
+          if (!log || !log.parsed_json) return;
+
+          const jobs = log.parsed_json.jobs || [];
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          for (const j of jobs) {
+             const { data: newJob } = await supabase.from('jobs').insert({
+                 title: j.title,
+                 company_name: j.company || "Unknown",
+                 location: j.location || "Uganda",
+                 job_type: j.job_type || "Full-time",
+                 description: j.description,
+                 application_link: j.application_link,
+                 salary_range: j.salary,
+                 source_type: 'WHATSAPP',
+                 source_message_id: id,
+                 status: 'PUBLISHED',
+                 posted_by: user?.id
+             }).select().single();
+             
+             if (newJob) {
+                api.processJobAlerts(mapJobFromDB(newJob));
+             }
+          }
+
           await supabase.from('ingest_logs').update({ status: 'published' }).eq('id', id);
       } catch (e) { console.error(e); }
   },
 
   rejectIngest: async (id: string) => {
-      if (!isSupabaseConfigured()) {
-          const log = MOCK_LOGS.find(l => l.id === id);
-          if (log) log.status = 'rejected';
-          return;
-      }
+      if (!isSupabaseConfigured()) return;
       try {
           await supabase.from('ingest_logs').update({ status: 'rejected' }).eq('id', id);
       } catch (e) { console.error(e); }
   },
 
   addIngestLog: async (rawText: string, parsedJson: any) => {
-      if (!isSupabaseConfigured()) {
-          MOCK_LOGS.unshift({
-              id: `log-${Date.now()}`,
-              rawText,
-              parsedJson,
-              status: 'parsed',
-              createdAt: new Date().toISOString()
-          });
-          return;
-      }
+      if (!isSupabaseConfigured()) return;
       try {
           await supabase.from('ingest_logs').insert({
               raw_text: rawText,

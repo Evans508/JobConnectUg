@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { GoogleGenAI, Type } from "@google/genai";
 import { motion, AnimatePresence } from 'framer-motion';
@@ -62,7 +63,16 @@ const CvAnalyzer: React.FC = () => {
         }
       });
 
-      const json = JSON.parse(response.text || '{}');
+      const rawText = response.text || '{}';
+      // Cleanup potential markdown wrapping more robustly
+      let jsonString = rawText.trim();
+      if (jsonString.startsWith('```json')) {
+        jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      } else if (jsonString.startsWith('```')) {
+        jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
+      }
+      
+      const json = JSON.parse(jsonString);
       setResult(json);
 
     } catch (err) {

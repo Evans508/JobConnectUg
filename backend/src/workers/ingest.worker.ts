@@ -69,7 +69,16 @@ export async function processIngestJob(jobData: IngestJob) {
     const responseText = response.text;
     if (!responseText) throw new Error("Empty response from AI");
 
-    const parsedData = JSON.parse(responseText);
+    // Robust cleanup for markdown code blocks
+    let jsonString = responseText.trim();
+    if (jsonString.startsWith('```json')) {
+      jsonString = jsonString.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+    } else if (jsonString.startsWith('```')) {
+      jsonString = jsonString.replace(/^```\s*/, '').replace(/\s*```$/, '');
+    }
+    
+    const parsedData = JSON.parse(jsonString);
+    
     const jobs = parsedData.jobs || [];
 
     if (jobs.length === 0) {

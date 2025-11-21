@@ -1,7 +1,9 @@
+
 import React, { useEffect, useState } from 'react';
 import { Job } from '../types';
 import { api } from '../services/api';
 import JobCard from '../components/JobCard';
+import JobAlertsManager from '../components/JobAlertsManager';
 import { useAuth } from '../context/AuthContext';
 
 interface CandidateDashboardProps {
@@ -46,20 +48,27 @@ const CandidateDashboard: React.FC<CandidateDashboardProps> = ({ onJobClick }) =
           </div>
 
           {/* Main Content */}
-          <div className="md:w-2/3 lg:w-3/4">
-             <h2 className="text-xl font-bold text-slate-900 mb-6">Saved Jobs</h2>
-             {savedJobs.length > 0 ? (
-                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {savedJobs.map(job => (
-                        <JobCard key={job.id} job={job} onApply={() => onJobClick(job.id)} />
-                    ))}
-                 </div>
-             ) : (
-                 <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    <p className="text-slate-500">You haven't saved any jobs yet.</p>
-                    <button className="mt-2 text-indigo-600 font-medium hover:underline">Browse Jobs</button>
-                 </div>
-             )}
+          <div className="md:w-2/3 lg:w-3/4 space-y-8">
+             
+             {/* Job Alerts Section */}
+             <JobAlertsManager />
+
+             {/* Saved Jobs Section */}
+             <div>
+                 <h2 className="text-xl font-bold text-slate-900 mb-6">Saved Jobs</h2>
+                 {savedJobs.length > 0 ? (
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {savedJobs.map(job => (
+                            <JobCard key={job.id} job={job} onApply={() => onJobClick(job.id)} />
+                        ))}
+                     </div>
+                 ) : (
+                     <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                        <p className="text-slate-500">You haven't saved any jobs yet.</p>
+                        <button className="mt-2 text-indigo-600 font-medium hover:underline">Browse Jobs</button>
+                     </div>
+                 )}
+             </div>
           </div>
        </div>
     </div>

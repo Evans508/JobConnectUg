@@ -14,23 +14,40 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
   const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [role, setRole] = useState<UserRole>(UserRole.SEEKER);
-  const { login } = useAuth();
+  
+  const { login, signup } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email || !password) return;
     
     setIsLoading(true);
+    setError('');
+    
     try {
-      await login(email, role);
+      if (isLogin) {
+        await login(email, password);
+      } else {
+        if (!fullName) {
+            setError("Full name is required for sign up");
+            setIsLoading(false);
+            return;
+        }
+        await signup(email, password, role, fullName);
+      }
       onClose();
       // Reset form
       setEmail('');
       setPassword('');
-    } catch (err) {
+      setFullName('');
+      setError('');
+    } catch (err: any) {
       console.error(err);
+      setError(err.message || "Authentication failed");
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +104,20 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
               )}
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {!isLogin && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Full Name</label>
+                      <input 
+                        type="text" 
+                        value={fullName}
+                        onChange={(e) => setFullName(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-slate-50 focus:bg-white"
+                        placeholder="John Doe"
+                        required
+                      />
+                    </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase mb-1">Email Address</label>
                   <input 
@@ -107,8 +138,15 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all bg-slate-50 focus:bg-white"
                     placeholder="••••••••"
                     required
+                    minLength={6}
                   />
                 </div>
+
+                {error && (
+                    <div className="text-red-500 text-sm text-center bg-red-50 p-2 rounded-lg">
+                        {error}
+                    </div>
+                )}
 
                 <button 
                   type="submit"
@@ -123,7 +161,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, initialMode = 'l
                 <p className="text-sm text-slate-500">
                   {isLogin ? "Don't have an account?" : "Already have an account?"}
                   <button 
-                    onClick={() => setIsLogin(!isLogin)}
+                    onClick={() => { setIsLogin(!isLogin); setError(''); }}
                     className="ml-1 font-bold text-indigo-600 hover:underline"
                   >
                     {isLogin ? 'Sign Up' : 'Sign In'}

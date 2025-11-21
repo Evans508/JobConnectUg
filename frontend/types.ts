@@ -4,7 +4,7 @@ export interface Job {
   title: string;
   companyName: string;
   location: string;
-  jobType: 'Full-time' | 'Part-time' | 'Contract' | 'Internship' | 'Freelance' | 'Unknown';
+  jobType: 'Full-time' | 'Part-time' | 'Contract' | 'Internship' | 'Freelance' | 'Unknown' | string;
   description: string;
   requirements?: string[];
   responsibilities?: string[];
@@ -14,9 +14,11 @@ export interface Job {
   postedAt: string;
   applicationLink?: string;
   isFeatured: boolean;
-  sourceType?: 'MANUAL' | 'WHATSAPP';
+  sourceType?: 'MANUAL' | 'WHATSAPP' | string;
   views?: number;
   applicantsCount?: number;
+  postedBy?: string; // User ID
+  status?: string;
 }
 
 export interface JobInput {
@@ -29,6 +31,15 @@ export interface JobInput {
   salaryRange?: string;
   categoryId?: string;
   deadline?: string;
+}
+
+export interface JobAlert {
+  id: string;
+  userId: string;
+  keywords: string;
+  location: string;
+  jobType: string;
+  createdAt: string;
 }
 
 export interface IngestLog {
@@ -53,4 +64,6 @@ export interface User {
   role: UserRole;
   avatarUrl?: string;
   cvUrl?: string;
+  skills?: string[];
+  bio?: string;
 }
